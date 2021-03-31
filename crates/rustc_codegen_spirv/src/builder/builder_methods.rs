@@ -931,18 +931,11 @@ impl<'a, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'tcx> {
         count: u64,
         dest: PlaceRef<'tcx, Self::Value>,
     ) -> Self {
-        let zero = self.const_usize(0);
-        let start = dest.project_index(&mut self, zero).llval;
-
-        let align = dest
-            .align
-            .restrict_for_offset(dest.layout.field(self.cx(), 0).size);
-
         for i in 0..count {
-            let current = self.inbounds_gep(start, &[self.const_usize(i)]);
+            let i = self.const_usize(i);
             cg_elem.val.store(
                 &mut self,
-                PlaceRef::new_sized_aligned(current, cg_elem.layout, align),
+                dest.project_index(&mut self, zero),
             );
         }
 
