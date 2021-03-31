@@ -5,7 +5,8 @@
 use crate::codegen_cx::CodegenCx;
 use crate::symbols::Symbols;
 use rspirv::spirv::{
-    AccessQualifier, BuiltIn, Dim, ExecutionMode, ExecutionModel, ImageFormat, StorageClass,
+    AccessQualifier, BuiltIn, Capability, Dim, ExecutionMode, ExecutionModel, ImageFormat,
+    StorageClass,
 };
 use rustc_ast::Attribute;
 use rustc_hir as hir;
@@ -84,6 +85,7 @@ pub enum SpirvAttribute {
 
     // `fn` attributes:
     Entry(Entry),
+    Capability(Vec<Capability>),
 
     // (entry) `fn` parameter attributes:
     StorageClass(StorageClass),
@@ -116,6 +118,7 @@ pub struct AggregatedSpirvAttributes {
 
     // `fn` attributes:
     pub entry: Option<Spanned<Entry>>,
+    pub capability: Option<Spanned<Vec<Capability>>>,
 
     // (entry) `fn` parameter attributes:
     pub storage_class: Option<Spanned<StorageClass>>,
@@ -197,6 +200,9 @@ impl AggregatedSpirvAttributes {
             StorageClass(value) => {
                 try_insert(&mut self.storage_class, value, span, "storage class")
             }
+            Capability(value) => {
+                try_insert(&mut self.capability, value, span, "#[spirv(capability)]")
+            }
             Builtin(value) => try_insert(&mut self.builtin, value, span, "builtin"),
             DescriptorSet(value) => try_insert(
                 &mut self.descriptor_set,
@@ -272,7 +278,7 @@ impl CheckSpirvAttrVisitor<'_> {
                     _ => Err(Expected("struct")),
                 },
 
-                SpirvAttribute::Entry(_) => match target {
+                SpirvAttribute::Capability(_) | SpirvAttribute::Entry(_) => match target {
                     Target::Fn
                     | Target::Method(MethodKind::Trait { body: true })
                     | Target::Method(MethodKind::Inherent) => {
@@ -342,6 +348,7 @@ impl CheckSpirvAttrVisitor<'_> {
                     _ => Err(Expected("function or closure")),
                 },
             };
+
             match valid_target {
                 Err(Expected(expected_target)) => self.tcx.sess.span_err(
                     span,
@@ -366,6 +373,16 @@ impl CheckSpirvAttrVisitor<'_> {
                         .emit(),
                 },
             }
+        }
+
+        match aggregated_attrs.capability {
+            Some(spanned) if aggregated_attrs.entry.is_none() => {
+                self.tcx.sess.span_err(
+                    spanned.span,
+                    "`#[spirv(capability)]` can only be used with entry point functions.",
+                );
+            }
+            _ => {}
         }
     }
 }
