@@ -935,7 +935,7 @@ impl<'a, 'tcx> BuilderMethods<'a, 'tcx> for Builder<'a, 'tcx> {
             let i = self.const_usize(i);
             cg_elem.val.store(
                 &mut self,
-                dest.project_index(&mut self, zero),
+                dest.project_index(&mut self, i),
             );
         }
 
